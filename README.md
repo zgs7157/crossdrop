@@ -4,6 +4,10 @@
 
 不需要同一个 Wi-Fi，不需要公网 IP，不需要注册账号：一方显示 8 位连接码，另一方输入这个码，文件就在两台设备之间通过加密的 WebRTC 通道直接流动——文件本身不经过任何中转服务器落盘。
 
+![CrossDrop 空闲状态](docs/screenshot-1-idle.png)
+
+![CrossDrop 待发送队列](docs/screenshot-2-queue.png)
+
 ```
   电脑 A (郑州 · 家宽)                电脑 B (深圳 · 公司网)
   ┌──────────────┐                  ┌──────────────┐
@@ -107,7 +111,7 @@ turnserver -a -f -n -r crossdrop -u crossdrop:yourpassword \
 npm install          # 安装依赖（peerjs、electron、electron-builder）
 npm start            # 启动桌面版
 npm run test:e2e     # 端到端自测：两个窗口真实互传 8MB 文件并校验内容哈希
-npm run assets       # 仅还原图标（从 build/icon.*.b64）
+npm run assets       # 重新生成图标、从 node_modules 复制 peerjs.min.js
 npm run dist         # 打包 Windows 安装程序，产物在 dist/
 ```
 
@@ -134,8 +138,8 @@ src/              渲染层（桌面端与网页版共用同一套代码）
   transfer.js     配对、数据通道、分片文件协议
   platform.js     桌面/浏览器能力适配（保存方式、设置存储）
   vendor/         第三方前端库（peerjs.min.js，MIT）
-build/            图标与 NSIS 卸载脚本（icon.*.b64 为图标的 base64 文本，构建时还原成 icon.png / icon.ico）
-scripts/          端到端测试、截图、图标还原
+build/            图标（由 scripts/make-icon.js 用代码绘制）与 NSIS 卸载脚本
+scripts/          端到端测试、截图、图标与资源准备
 ```
 
 ## 协议（文件分片）
