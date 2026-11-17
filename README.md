@@ -31,19 +31,20 @@
 
 ## 安装
 
-仓库只包含源码。在 Windows 上构建安装程序：
+1. 打开 [Releases](https://github.com/zgs7157/crossdrop/releases) 下载 `CrossDrop-Setup-1.0.0.exe`（Windows x64，未签名）。
+2. 双击运行，选择安装路径（默认 `%LOCALAPPDATA%\Programs\CrossDrop`），点「安装」，没有下一步向导、没有捆绑项。
+3. 安装完成后桌面与开始菜单会出现「CrossDrop 跨网快传」。
+
+卸载：开始菜单 → 右键「CrossDrop 跨网快传」→ 卸载（或「设置 → 应用」里卸载）。卸载程序会把整个安装目录连同 `%APPDATA%\CrossDrop`（设置文件）一起删干净，不留残余。
+
+也可以从源码自己构建：
 
 ```powershell
 npm install
-npm run dist      # 先由 scripts/prepare-assets.js 还原图标，再打包
+npm run dist      # 先由 scripts/prepare-assets.js 准备图标与前端库，再打包
 ```
 
-产物是 `dist\CrossDrop-Setup-1.0.0.exe`。双击运行后：
-
-1. 选择安装路径（默认 `%LOCALAPPDATA%\Programs\CrossDrop`），点「安装」，没有下一步向导、没有捆绑项。
-2. 安装完成后桌面与开始菜单会出现「CrossDrop 跨网快传」。
-
-卸载：开始菜单 → 右键「CrossDrop 跨网快传」→ 卸载（或「设置 → 应用」里卸载）。卸载程序会把整个安装目录连同 `%APPDATA%\CrossDrop`（设置文件）一起删干净，不留残余。
+产物是 `dist\CrossDrop-Setup-1.0.0.exe`。
 
 > 安装包未做代码签名，Windows SmartScreen 可能提示「未知发布者」，选择「更多信息 → 仍要运行」即可；源码在本仓库可自行核对、自行构建。
 
