@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CrossDrop 跨网快传</title>
+<meta name="description" content="跨局域网、跨地区的点对点文件互传工具">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230FA98E'/%3E%3Cpath d='M18 32h20M32 24l8 8-8 8' stroke='white' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='32' r='4' fill='%23C9F2E7'/%3E%3Ccircle cx='46' cy='32' r='6' fill='white' opacity='.9'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="shell">
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect x="1" y="1" width="30" height="30" rx="9" fill="currentColor"/>
+        <path d="M9 16h9" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M16 12l4 4-4 4" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="8" cy="16" r="1.9" fill="#fff" opacity=".75"/>
+        <circle cx="24" cy="16" r="2.6" fill="#fff"/>
+      </svg>
+      <div class="brand-text">
+        <span class="brand-name">CrossDrop</span>
+        <span class="brand-sub">跨网快传</span>
+      </div>
+    </div>
+
+    <div class="status-pill" id="statusPill" data-state="boot">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span class="status-text" id="statusText">正在启动…</span>
+    </div>
+
+    <button class="ghost-btn icon-only" id="btnSettings" title="设置" aria-label="设置">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.7"/>
+        <path d="M12 4.2v2.1M12 17.7v2.1M4.2 12h2.1M17.7 12h2.1M6.5 6.5l1.5 1.5M16 16l1.5 1.5M17.5 6.5L16 8M8 16l-1.5 1.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </header>
+
+  <section class="pair" aria-label="配对">
+    <article class="pair-card mine">
+      <div class="pair-head">
+        <span class="eyebrow">我的连接码</span>
+        <span class="pair-hint" id="myCodeHint">正在分配…</span>
+      </div>
+      <div class="code-row">
+        <span class="code" id="myCode">········</span>
+        <button class="ghost-btn icon-only" id="btnCopyCode" title="复制连接码" aria-label="复制连接码">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="9" y="9" width="11" height="11" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.7"/>
+            <path d="M15 6.6V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h.6" fill="none" stroke="currentColor" stroke-width="1.7"/>
+          </svg>
+        </button>
+      </div>
+      <p class="pair-note">把它发给对方，让对方在右边输入即可建立直连。</p>
+    </article>
+
+    <div class="pair-bridge" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M5 12h13M14 8l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <article class="pair-card theirs">
+      <div class="pair-head">
+        <span class="eyebrow">对方的连接码</span>
+        <span class="pair-hint">输 8 位，自动连接</span>
+      </div>
+      <div class="code-row">
+        <input id="peerCode" class="code-input" placeholder="例如 7K3F-92QM" inputmode="latin" autocomplete="off" spellcheck="false" maxlength="12" aria-label="对方连接码">
+        <button class="primary-btn" id="btnConnect">连接</button>
+      </div>
+      <p class="pair-note">两台设备输对同一个码，文件就会在它们之间直接流动。</p>
+    </article>
+  </section>
+
+  <section class="session-bar" id="sessionBar" hidden>
+    <div class="session-info">
+      <span class="session-dot" aria-hidden="true"></span>
+      <span id="sessionText">已建立连接</span>
+    </div>
+    <div class="session-actions">
+      <span class="transport" id="transportText">P2P 直连</span>
+      <button class="ghost-btn" id="btnDisconnect">断开</button>
+    </div>
+  </section>
+
+  <main class="panels">
+    <section class="panel" aria-labelledby="sendTitle">
+      <div class="panel-head">
+        <h2 id="sendTitle">发送</h2>
+        <span class="panel-meta" id="sendMeta">未选择文件</span>
+      </div>
+
+      <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="选择要发送的文件">
+        <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 16V5M12 5l-3.6 3.6M12 5l3.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M4.5 15.5v2A2.5 2.5 0 0 0 7 18h10a2.5 2.5 0 0 0 2.5-2.5v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <p class="drop-title">拖入文件或文件夹</p>
+        <p class="drop-sub">或<button class="link-btn" id="btnPick">选择文件</button> · <button class="link-btn" id="btnPickFolder">选择文件夹</button>，数量不限</p>
+        <input type="file" id="fileInput" multiple hidden>
+        <input type="file" id="folderInput" webkitdirectory hidden>
+      </div>
+
+      <div class="queue" id="queue"></div>
+      <div class="empty-note" id="queueEmpty">队列为空，选好文件后点“发送”即可。</div>
+
+      <div class="send-actions">
+        <div class="totals" id="sendTotals"></div>
+        <div class="btn-group">
+          <button class="ghost-btn" id="btnClearQueue">清空</button>
+          <button class="primary-btn" id="btnSend" disabled>发送全部</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="recvTitle">
+      <div class="panel-head">
+        <h2 id="recvTitle">接收</h2>
+        <span class="panel-meta" id="recvMeta">保持在线即可接文件</span>
+      </div>
+
+      <div class="save-row">
+        <div class="save-label">
+          <span class="save-key">保存到</span>
+          <span class="save-path" id="savePath" title="">—</span>
+        </div>
+        <button class="ghost-btn small" id="btnSaveDir">更改</button>
+      </div>
+
+      <div class="recv-list" id="recvList"></div>
+      <div class="empty-note" id="recvEmpty">还没有收到文件。对方发过来后会实时出现在这里。</div>
+      <p class="recv-hint">桌面版逐片写盘，几十 GB 的镜像也不占内存；网页版则通过浏览器下载保存。</p>
+
+      <div class="recv-actions">
+        <div class="totals" id="recvTotals"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>点对点加密通道 · 文件不经过第三方服务器</span>
+    <button class="link-btn" id="btnOpenWebLink" hidden>在手机浏览器打开</button>
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<dialog class="settings" id="settingsDialog">
+  <form method="dialog" class="settings-body" id="settingsForm">
+    <div class="settings-head">
+      <h2>设置</h2>
+      <button class="ghost-btn icon-only" value="cancel" aria-label="关闭" type="submit">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7l-10 10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <label class="field" id="saveDirField">
+      <span class="field-label">接收文件保存位置</span>
+      <span class="field-row">
+        <input type="text" id="inpSaveDir" readonly>
+        <button type="button" class="ghost-btn small" id="btnChangeSaveDir">更改</button>
+      </span>
+    </label>
+
+    <label class="field">
+      <span class="field-label">信令服务器</span>
+      <select id="inpSignalMode" class="field-input">
+        <option value="cloud">使用公共信令（开箱可用）</option>
+        <option value="custom">使用自建信令</option>
+      </select>
+    </label>
+
+    <div class="field-group" id="customSignal">
+      <label class="field">
+        <span class="field-label">自建信令地址</span>
+        <input type="text" id="inpSignalHost" class="field-input" placeholder="例如 signal.example.com">
+      </label>
+      <div class="field-inline">
+        <label class="field">
+          <span class="field-label">端口</span>
+          <input type="number" id="inpSignalPort" class="field-input" placeholder="443">
+        </label>
+        <label class="field">
+          <span class="field-label">路径</span>
+          <input type="text" id="inpSignalPath" class="field-input" placeholder="/">
+        </label>
+        <label class="field checkbox">
+          <input type="checkbox" id="inpSignalSecure">
+          <span>使用 HTTPS</span>
+        </label>
+      </div>
+    </div>
+
+    <label class="field checkbox">
+      <input type="checkbox" id="inpUseStun">
+      <span>启用 STUN 打洞 + 公共中继（更容易连上，会略慢）</span>
+    </label>
+
+    <div class="field-group">
+      <label class="field">
+        <span class="field-label">自建 TURN 中继地址（可选）</span>
+        <input type="text" id="inpTurnUrl" class="field-input" placeholder="turn:turn.example.com:3478">
+      </label>
+      <div class="field-inline">
+        <label class="field">
+          <span class="field-label">用户名</span>
+          <input type="text" id="inpTurnUser" class="field-input">
+        </label>
+        <label class="field">
+          <span class="field-label">密码</span>
+          <input type="text" id="inpTurnSecret" class="field-input">
+        </label>
+      </div>
+      <p class="field-hint">双方网络都极严格（公司内网、校园网）时，用自建 TURN 可保证连得上。</p>
+    </div>
+
+    <div class="settings-foot">
+      <span class="version" id="versionText">CrossDrop</span>
+      <div class="btn-group">
+        <button type="submit" value="cancel" class="ghost-btn">取消</button>
+        <button type="button" class="primary-btn" id="btnSaveSettings">保存</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<script src="vendor/peerjs.min.js"></script>
+<script src="platform.js"></script>
+<script src="transfer.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

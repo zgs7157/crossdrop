@@ -1,0 +1,72 @@
+{
+  "name": "crossdrop",
+  "productName": "CrossDrop",
+  "version": "1.0.0",
+  "description": "CrossDrop 跨网快传：两台电脑或手机之间跨局域网、跨地区直接互传文件的桌面工具（WebRTC 点对点 + 加密通道）。",
+  "author": "zgs7157",
+  "license": "MIT",
+  "private": true,
+  "main": "electron/main.js",
+  "homepage": "https://github.com/zgs7157/crossdrop",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zgs7157/crossdrop.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test:e2e": "electron scripts/e2e.js",
+    "assets": "node scripts/prepare-assets.js",
+    "dist": "node scripts/prepare-assets.js && electron-builder --win nsis"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "peerjs": "^1.5.4"
+  },
+  "build": {
+    "appId": "com.zgs7157.crossdrop",
+    "productName": "CrossDrop",
+    "copyright": "Copyright © 2026 zgs7157",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "build/icon.ico",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "CrossDrop-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CrossDrop 跨网快传",
+      "uninstallDisplayName": "CrossDrop 跨网快传",
+      "deleteAppDataOnUninstall": true,
+      "include": "build/installer.nsh",
+      "installerLanguages": [
+        "zh_CN"
+      ],
+      "language": "2052",
+      "runAfterFinish": true
+    }
+  }
+}
