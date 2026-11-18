@@ -6,3 +6,4 @@ release/
 Thumbs.db
 release-server/
 CrossDrop-Server-*.zip
+upload-result.json

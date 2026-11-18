@@ -2,11 +2,13 @@
 
 在两台电脑、或电脑与手机之间**跨局域网、跨地区**直接互传文件。
 
-不需要同一个 Wi-Fi，不需要公网 IP，不需要注册账号：一方显示 8 位连接码，另一方输入这个码，文件就在两台设备之间通过加密的 WebRTC 通道直接流动——文件本身不经过任何中转服务器落盘。
+不需要同一个 Wi-Fi，不需要注册账号：一方显示 8 位连接码，另一方输入这个码，文件就在两台设备之间通过加密通道流动。能打洞就走 WebRTC 点对点；打不通时自动改走**你自己部署的** CrossDrop 服务（信令 + 中继二合一），不依赖任何第三方云、不落盘。
 
 ![CrossDrop 空闲状态](docs/screenshot-1-idle.png)
 
 ![CrossDrop 待发送队列](docs/screenshot-2-queue.png)
+
+![设置：自建服务与连接方式](docs/screenshot-3-settings.png)
 
 ```
   电脑 A (郑州 · 家宽)                电脑 B (深圳 · 公司网)
@@ -19,7 +21,7 @@
 
 ## 功能
 
-- **跨网直连**：WebRTC NAT 打洞，短距离/跨省都能连；打洞失败时自动尝试 TURN 中继。
+- **跨网直连**：WebRTC NAT 打洞，短距离/跨省都能连；打洞失败自动转自建中继（`server/`），不再依赖公共免费 TURN。
 - **端到端加密**：数据通道为 DTLS 加密，文件内容只存在于两端设备。
 - **8 位连接码配对**：无账号、无登录，输一次码即建立会话。
 - **桌面端任意大小文件**：边收边写盘，不占内存，几十 GB 的镜像也能传。
@@ -31,7 +33,7 @@
 
 ## 安装
 
-1. 打开 [Releases](https://github.com/zgs7157/crossdrop/releases) 下载 `CrossDrop-Setup-1.0.0.exe`（Windows x64，未签名）。
+1. 打开 [Releases](https://github.com/zgs7157/crossdrop/releases) 下载 `CrossDrop-Setup-1.0.1.exe`（Windows x64，未签名）。
 2. 双击运行，选择安装路径（默认 `%LOCALAPPDATA%\Programs\CrossDrop`），点「安装」，没有下一步向导、没有捆绑项。
 3. 安装完成后桌面与开始菜单会出现「CrossDrop 跨网快传」。
 
@@ -44,7 +46,7 @@ npm install
 npm run dist      # 先由 scripts/prepare-assets.js 准备图标与前端库，再打包
 ```
 
-产物是 `dist\CrossDrop-Setup-1.0.0.exe`。
+产物是 `dist\CrossDrop-Setup-1.0.1.exe`。
 
 > 安装包未做代码签名，Windows SmartScreen 可能提示「未知发布者」，选择「更多信息 → 仍要运行」即可；源码在本仓库可自行核对、自行构建。
 
