@@ -246,26 +246,36 @@
     const settings = state.settings;
     const iceServers = [];
     if (settings.useStun !== false) {
-      iceServers.push({ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] });
+      /* 只用实测可用的 STUN：只负责告诉双方各自的公网地址，不转发数据 */
       iceServers.push({
         urls: [
-          'turn:openrelay.metered.ca:80',
-          'turn:openrelay.metered.ca:443',
-          'turn:openrelay.metered.ca:443?transport=tcp'
-        ],
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
+          'stun:stun.cloudflare.com:3478',
+          'stun:stun.l.google.com:19302',
+          'stun:stun.nextcloud.com:443'
+        ]
       });
     }
-    if (settings.turnUrl) {
+
+    /* 自建 TURN 可选，支持逗号/换行分隔的多个地址 */
+    const turnUrls = String(settings.turnUrl || '')
+      .split(/[\s,]+/)
+      .map(function (item) { return item.trim(); })
+      .filter(Boolean);
+    if (turnUrls.length) {
       iceServers.push({
-        urls: settings.turnUrl,
+        urls: turnUrls,
         username: settings.turnUser || '',
         credential: settings.turnSecret || ''
       });
     }
+
     return {
       iceServers: iceServers,
+      linkMode: settings.linkMode || 'auto',
+      relay: {
+        url: String(settings.relayUrl || '').trim(),
+        token: String(settings.relayToken || '').trim()
+      },
       signaling: {
         mode: settings.signalMode || 'cloud',
         host: settings.signalHost || '',
@@ -309,7 +319,9 @@
         el('sessionText').textContent = '已连接 · ' + payload.name;
         break;
       case 'transport':
-        el('transportText').textContent = payload.relay ? '经中继转发' : '点对点直连';
+        el('transportText').textContent = payload.kind === 'relay'
+          ? '经自建中继转发'
+          : payload.relay ? '经中继转发' : '点对点直连';
         break;
       case 'disconnected':
         state.connected = false;
@@ -523,6 +535,9 @@
     el('inpTurnUrl').value = settings.turnUrl || '';
     el('inpTurnUser').value = settings.turnUser || '';
     el('inpTurnSecret').value = settings.turnSecret || '';
+    el('inpRelayUrl').value = settings.relayUrl || '';
+    el('inpRelayToken').value = settings.relayToken || '';
+    el('inpLinkMode').value = settings.linkMode || 'auto';
     el('customSignal').hidden = (settings.signalMode || 'cloud') !== 'custom';
     el('saveDirField').hidden = !state.info.desktop;
   }
@@ -537,7 +552,10 @@
       useStun: el('inpUseStun').checked,
       turnUrl: el('inpTurnUrl').value.trim(),
       turnUser: el('inpTurnUser').value.trim(),
-      turnSecret: el('inpTurnSecret').value.trim()
+      turnSecret: el('inpTurnSecret').value.trim(),
+      relayUrl: el('inpRelayUrl').value.trim(),
+      relayToken: el('inpRelayToken').value.trim(),
+      linkMode: el('inpLinkMode').value
     };
     state.settings = await P.saveSettings(patch);
     el('settingsDialog').close();

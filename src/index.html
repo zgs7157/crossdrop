@@ -195,8 +195,30 @@
 
     <label class="field checkbox">
       <input type="checkbox" id="inpUseStun">
-      <span>启用 STUN 打洞 + 公共中继（更容易连上，会略慢）</span>
+      <span>启用 STUN（让双方找到彼此的公网地址，不转发文件）</span>
     </label>
+
+    <div class="field-group">
+      <label class="field">
+        <span class="field-label">自建服务地址（信令 + 中继，推荐）</span>
+        <input type="text" id="inpRelayUrl" class="field-input" placeholder="ws://192.168.1.10:9000/ws">
+      </label>
+      <div class="field-inline">
+        <label class="field">
+          <span class="field-label">访问口令</span>
+          <input type="text" id="inpRelayToken" class="field-input" placeholder="与服务端 --token 一致">
+        </label>
+        <label class="field">
+          <span class="field-label">连接方式</span>
+          <select id="inpLinkMode" class="field-input">
+            <option value="auto">先直连，连不上自动走中继</option>
+            <option value="relay">只走自建服务</option>
+            <option value="peer">只直连</option>
+          </select>
+        </label>
+      </div>
+      <p class="field-hint">在项目目录执行 <code>node server/index.js --port 9000 --token 你的口令</code>，双方填同一个地址即可；公司网、校园网、跨地区都能传。服务端源码在 <code>server/</code>。</p>
+    </div>
 
     <div class="field-group">
       <label class="field">
@@ -228,6 +250,7 @@
 
 <script src="vendor/peerjs.min.js"></script>
 <script src="platform.js"></script>
+<script src="relay-link.js"></script>
 <script src="transfer.js"></script>
 <script src="app.js"></script>
 </body>

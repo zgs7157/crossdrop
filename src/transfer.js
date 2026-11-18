@@ -50,6 +50,12 @@
     let idAttempts = 0;
     let pendingTarget = null;
 
+    let codeEmitted = false;
+    let relayHost = null;
+    let relayGuest = null;
+    let relayFallbackTimer = null;
+    let linkMode = 'auto';
+
     let sending = false;
     let cancelRequested = false;
     let queueCursor = 0;
@@ -85,10 +91,99 @@
       return result;
     }
 
+    function relayConfig() {
+      const config = getConfig() || {};
+      const relay = config.relay || {};
+      return { url: relay.url || '', token: relay.token || '' };
+    }
+
+    function emitCode() {
+      if (codeEmitted) return;
+      codeEmitted = true;
+      emit('code', { code: code, display: displayCode(code) });
+    }
+
     function start() {
+      if (destroyed) return;
+      if (!code) code = randomCode(8);
+
+      const config = getConfig() || {};
+      linkMode = config.linkMode || 'auto';
+      const relay = relayConfig();
+      const canRelay = linkMode !== 'peer' && !!relay.url;
+      const usePeer = linkMode !== 'relay';
+
+      if (!usePeer && !canRelay) {
+        status('error', '未配置自建服务地址');
+        return;
+      }
+
+      if (canRelay) startRelayHost();
+      if (usePeer) startPeer();
+      else emitCode();
+    }
+
+    function startRelayHost() {
+      if (destroyed || relayHost) return;
+      const relay = relayConfig();
+      if (!relay.url) return;
+
+      const link = global.CDRelay.create({
+        url: relay.url,
+        token: relay.token,
+        role: 'host',
+        code: code
+      });
+      relayHost = link;
+
+      link.on('registered', function () {
+        emitCode();
+        status('boot', '已注册到自建服务，等待对方连接');
+        if (!peer || !peer.open) emitCode();
+      });
+
+      link.on('open', function () {
+        attach(link, false, 'relay');
+      });
+
+      link.on('error', function (payload) {
+        const reason = payload && payload.reason;
+        if (reason === 'socket') {
+          notice('warn', '自建服务连不上：' + (payload.message || '地址或端口不对'));
+        } else if (reason === 'token') {
+          notice('error', '自建服务口令不对，请在设置里检查');
+        }
+      });
+
+      link.on('close', function () {
+        if (relayHost === link) relayHost = null;
+        if (destroyed) return;
+        if (conn === link) {
+          conn = null;
+          peerInfo = null;
+          abortCurrent();
+          emit('disconnected', {});
+          status('ready', '连接已断开');
+        }
+        /* 主机位掉了就重新注册 */
+        scheduleRelayRehost();
+      });
+    }
+
+    let rehostTimer = null;
+    function scheduleRelayRehost() {
+      if (rehostTimer || destroyed) return;
+      rehostTimer = setTimeout(function () {
+        rehostTimer = null;
+        if (destroyed) return;
+        if (!relayConfig().url) return;
+        startRelayHost();
+      }, 3000);
+    }
+
+    function startPeer() {
       if (destroyed || starting) return;
       starting = true;
-      if (!code) code = randomCode(8);
       status('boot', '正在连接信令服务');
       let instance;
       try {
@@ -104,7 +199,7 @@
       instance.on('open', function () {
         starting = false;
         idAttempts = 0;
-        emit('code', { code: code, display: displayCode(code) });
+        emitCode();
         if (conn && conn.open) {
           status('connected', '已连接');
         } else {
@@ -118,7 +213,7 @@
       });
 
       instance.on('connection', function (incoming) {
-        attach(incoming, false);
+        attach(incoming, false, 'peer');
       });
 
       instance.on('disconnected', function () {
@@ -209,45 +304,145 @@
         notice('warn', '已经有一个连接了，请先断开');
         return false;
       }
-      if (!peer || !peer.open) {
-        pendingTarget = target;
-        notice('info', '信令还在连接，连上后会立刻与对方建立通道');
-        return true;
+      if (conn && conn.open) {
+        notice('warn', '已经有一个连接了，请先断开');
+        return false;
       }
 
+      const relay = relayConfig();
+      const canRelay = linkMode !== 'peer' && !!relay.url;
+      const peerReady = !!peer && peer.open;
+
       status('connecting', '正在连接 ' + displayCode(target));
-      const dataConnection = peer.connect(PEER_PREFIX + target.toLowerCase(), {
-        reliable: true,
-        serialization: 'binary'
-      });
-      attach(dataConnection, true);
       emit('connecting', { target: target });
+
+      if (linkMode !== 'relay') {
+        if (peerReady) {
+          const dataConnection = peer.connect(PEER_PREFIX + target.toLowerCase(), {
+            reliable: true,
+            serialization: 'binary'
+          });
+          attach(dataConnection, true, 'peer');
+        } else {
+          pendingTarget = target;
+          notice('info', '信令还在连接，连上后会立刻与对方建立通道');
+        }
+      }
+
+      if (canRelay) {
+        if (relayFallbackTimer) clearTimeout(relayFallbackTimer);
+        const delay = peerReady ? 4000 : 0;
+        relayFallbackTimer = setTimeout(function () {
+          relayFallbackTimer = null;
+          connectRelay(target);
+        }, delay);
+      }
+
+      if (linkMode === 'relay' && !canRelay) {
+        status('error', '未配置自建服务，无法连接');
+        return false;
+      }
+
       return true;
     }
 
-    function attach(dataConnection, outgoing) {
-      if (conn && conn !== dataConnection && conn.open) {
-        try {
-          dataConnection.close();
-        } catch {
-          /* 已关闭 */
+    function connectRelay(target) {
+      if (destroyed || (conn && conn.open)) return;
+      const relay = relayConfig();
+      if (!relay.url) return;
+
+      let attempts = 0;
+      const open = function () {
+        relayGuest = global.CDRelay.create({
+          url: relay.url,
+          token: relay.token,
+          role: 'guest',
+          target: target
+        });
+
+        relayGuest.on('open', function () {
+          attach(relayGuest, true, 'relay');
+        });
+
+        relayGuest.on('error', function (payload) {
+          const reason = payload && payload.reason;
+          if (reason === 'no-host') {
+            attempts += 1;
+            if (attempts <= 3 && !destroyed && !(conn && conn.open)) {
+              setTimeout(open, 3000);
+              return;
+            }
+            notice('warn', '自建服务上没有找到对方：确认双方填的是同一个服务地址和口令');
+            status(conn && conn.open ? 'connected' : 'ready', '没有找到对方');
+            return;
+          }
+          if (reason === 'token') {
+            notice('error', '自建服务口令不对，请在设置里检查');
+            return;
+          }
+          if (reason === 'socket') {
+            notice('error', '自建服务连不上：' + (payload.message || '地址或端口不对'));
+          }
+        });
+
+        relayGuest.on('close', function () {
+          if (destroyed || conn !== relayGuest) return;
+          conn = null;
+          peerInfo = null;
+          abortCurrent();
+          emit('disconnected', {});
+          status('ready', '连接已断开');
+        });
+      };
+
+      open();
+    }
+
+    function attach(dataConnection, outgoing, kind) {
+      const linkKind = kind || 'peer';
+
+      if (conn && conn !== dataConnection) {
+        if (conn.open) {
+          try {
+            dataConnection.close();
+          } catch {
+            /* 已关闭 */
+          }
+          notice('warn', '已有连接，拒绝了新的连入请求');
+          return;
         }
-        notice('warn', '已有连接，拒绝了新的连入请求');
-        return;
+        /* 旧通道还没建立：直接让位给新通道（直连失败转中继时会走到这里） */
+        try {
+          conn.close();
+        } catch {
+          /* 忽略 */
+        }
+      }
+
+      if (relayFallbackTimer) {
+        clearTimeout(relayFallbackTimer);
+        relayFallbackTimer = null;
       }
 
       conn = dataConnection;
+      conn.kind = linkKind;
+
+      const timeout = linkKind === 'relay' ? 15000 : 22000;
       let handshakeTimer = setTimeout(function () {
         if (!dataConnection.open) {
           status('ready', '连接超时');
-          notice('warn', '连接没有建立：对方可能处于严格内网，可在设置里配置 TURN 中继');
+          if (linkKind === 'relay') {
+            notice('warn', '自建服务通道没有建立：检查地址、口令与端口是否放通');
+          } else {
+            notice('warn', '直连没有建立：可在设置里填自建服务地址，自动改走中继');
+          }
           try {
             dataConnection.close();
           } catch {
             /* 忽略 */
           }
         }
-      }, 22000);
+      }, timeout);
 
       dataConnection.on('open', function () {
         clearTimeout(handshakeTimer);
@@ -258,7 +453,11 @@
         } catch {
           /* 发送 hello 失败不致命 */
         }
-        setTimeout(inspectTransport, 1500);
+        if (linkKind === 'relay') {
+          emit('transport', { relay: true, kind: 'relay', localType: 'relay', remoteType: 'relay' });
+        } else {
+          setTimeout(inspectTransport, 1500);
+        }
       });
 
       dataConnection.on('data', handleData);
@@ -270,7 +469,7 @@
         peerInfo = null;
         abortCurrent();
         emit('disconnected', {});
-        status(peer && peer.open ? 'ready' : 'boot', '连接已断开');
+        status((peer && peer.open) || relayHost ? 'ready' : 'boot', '连接已断开');
       });
 
       dataConnection.on('error', function (error) {
@@ -557,13 +756,15 @@
       }
       peerInfo = null;
       abortCurrent();
-      status(peer && peer.open ? 'ready' : 'boot', '已断开');
+      status((peer && peer.open) || relayHost ? 'ready' : 'boot', '已断开');
       emit('disconnected', {});
     }
 
     function destroy() {
       destroyed = true;
       if (retryTimer) clearTimeout(retryTimer);
+      if (rehostTimer) clearTimeout(rehostTimer);
+      if (relayFallbackTimer) clearTimeout(relayFallbackTimer);
       abortCurrent(true);
       try {
         if (peer) {
@@ -573,6 +774,18 @@
       } catch {
         /* 忽略 */
       }
+      try {
+        if (relayHost) relayHost.close();
+      } catch {
+        /* 忽略 */
+      }
+      try {
+        if (relayGuest) relayGuest.close();
+      } catch {
+        /* 忽略 */
+      }
+      relayHost = null;
+      relayGuest = null;
       peer = null;
       conn = null;
     }

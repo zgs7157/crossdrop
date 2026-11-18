@@ -1,0 +1,14 @@
+{
+  "name": "crossdrop-server",
+  "version": "1.0.1",
+  "private": true,
+  "description": "CrossDrop 自建服务：信令 + 中继二合一",
+  "license": "MIT",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}

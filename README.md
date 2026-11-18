@@ -69,49 +69,60 @@ npm run dist      # 先由 scripts/prepare-assets.js 准备图标与前端库，
 
 | 环节 | 说明 |
 | --- | --- |
-| 信令（配对） | 默认使用 PeerJS 公共信令 `0.peerjs.com`，只负责交换双方的连接信息，不接触文件 |
-| 传输 | WebRTC DataChannel，浏览器/Electron 内置的 DTLS 加密 |
-| 打洞 | 默认带 STUN（Cloudflare / Google）+ 公共 TURN 兜底，界面会显示「点对点直连」或「经中继转发」 |
-| 失败兜底 | 双方都在极严格 NAT（公司内网、校园网）时，可在设置里填自己的 TURN 服务器 |
+| 直连 | WebRTC DataChannel 点对点，浏览器/Electron 内置 DTLS 加密，文件不经过服务器 |
+| 打洞 | 内置 STUN（Cloudflare / Google / Nextcloud），只用来互报公网地址 |
+| 跨网兜底 | 项目自带 `server/` 自建服务（信令 + 中继二合一），双方在网络都很严格时由它转发，不依赖任何第三方云 |
+| 工作方式 | 「先直连，4 秒连不上自动走自建中继」，界面会显示「点对点直连」或「经自建中继转发」 |
 
-自定义项都在右上角「设置」里：信令服务器、STUN/TURN、接收目录。
+> 1.0.1 起移除了失效的公共免费 TURN：那些服务早已不出 relay 候选，只会拖慢握手并造成「同局域网能传、跨局域网连不上」。跨网稳定性改由自建服务保证。
+
+设置项在右上角「设置」：自建服务地址与口令、连接方式（auto / 只走中继 / 只直连）、STUN/TURN、接收目录。
 
 ## 常见问题
 
-- **一直显示「正在连接信令服务」**：当前网络访问不了 `0.peerjs.com`。可在设置里改用自建信令（见下）。
-- **输入码后提示「对方不在线」**：对方的 CrossDrop 没开，或码输错了（码里不会出现 0、1、I、O）。
-- **连上了但很慢**：说明走了中继。检查两端网络是否阻断了 UDP；配置自己的 TURN 通常更快。
+- **跨局域网连不上（同局域网正常）**：双方都在 NAT 后面，直连打洞失败。在设置里填自建服务地址（见下一节），客户端会自动改走中继。
+- **一直显示「正在连接信令服务」**：当前网络访问不了 `0.peerjs.com`。把连接方式改成「只走自建服务」即可完全不依赖公共信令。
+- **输入码后提示「对方不在线」**：对方的 CrossDrop 没开，或码输错了（码里不会出现 0、1、I、O）；走中继时还要确认双方填的是同一个服务地址和口令。
+- **连上了但很慢**：看界面显示的是「点对点直连」还是「经自建中继转发」。中继受服务器带宽限制，直连通常更快。
 - **传输中断**：网络切换或对方关闭应用会断开；重新连接后可重发（暂不支持断点续传）。
 - **防火墙提示**：允许 CrossDrop 通过防火墙，直连成功率更高。
 
-## 自建信令 / 中继（可选）
+## 自建服务（信令 + 中继，跨网推荐）
 
-信令服务器（一台能公网访问的小机器即可）：
+`server/` 里的服务只需要 Node.js 18+ 和一个 `ws` 依赖，不依赖 PeerJS 云、不依赖任何公共 TURN：
 
 ```bash
-npm install -g peerjs
-peerjs --port 9000 --key peerjs --path / --allow_discovery false
+cd server && npm install && npm start          # 默认 9000 端口
+# 或带口令与自定义端口
+node index.js --port 9000 --token 你的口令
 ```
 
-HTTPS 场景建议放在 Nginx 后面，把 443 转发到 9000。然后在 CrossDrop 设置里选「使用自建信令」，填地址、端口、路径。
+- 手机上/另一台电脑上打开 `http://服务器地址:9000/health`，看到 `{"ok":true,...}` 说明服务正常。
+- CrossDrop 设置里「自建服务地址」填 `ws://服务器地址:9000/ws`，口令填一致的值，连接方式选「先直连，连不上自动走中继」。
+- 放在公网请务必加 `--token`；想走 `wss://` 就在 Nginx 上做 443 → 9000 的反代并配证书。
+- 服务端只需要一个可被双方访问的地址：有公网 IP 的 VPS、家里宽带的 IPv6、或者任意一台双方都能连到的机器都行。
 
-TURN 中继（coturn 示例）：
+### 可选：自建 TURN
+
+如果不想用本项目的 WebSocket 中继，也可以自己搭 coturn（`turn:` 协议，与 WebRTC 原生配合）：
 
 ```bash
 turnserver -a -f -n -r crossdrop -u crossdrop:yourpassword \
   --listening-port 3478 --min-port 49152 --max-port 65535
 ```
 
-在 CrossDrop 设置里填 `turn:your-host:3478`、用户名、密码即可。
+然后把 `turn:your-host:3478`、用户名、密码填进设置的 TURN 项。
 
 ## 开发
 
 需要 Node.js 18+。
 
 ```bash
-npm install          # 安装依赖（peerjs、electron、electron-builder）
+npm install          # 安装依赖（peerjs、ws、electron、electron-builder）
 npm start            # 启动桌面版
-npm run test:e2e     # 端到端自测：两个窗口真实互传 8MB 文件并校验内容哈希
+npm run server       # 启动自建信令 + 中继服务（默认 9000 端口）
+npm run test:e2e     # 端到端自测：两个窗口真实互传 8MB 文件并校验内容哈希（直连）
+electron scripts/e2e-relay.js   # 中继链路自测（脚本内自动起服务）
 npm run assets       # 重新生成图标、从 node_modules 复制 peerjs.min.js
 npm run dist         # 打包 Windows 安装程序，产物在 dist/
 ```
@@ -136,9 +147,11 @@ src/              渲染层（桌面端与网页版共用同一套代码）
   index.html
   styles.css
   app.js          界面与状态
-  transfer.js     配对、数据通道、分片文件协议
+  transfer.js     配对、数据通道、分片文件协议、直连失败转中继
+  relay-link.js   自建服务通道（WebSocket → 与 DataConnection 同形）
   platform.js     桌面/浏览器能力适配（保存方式、设置存储）
   vendor/         第三方前端库（peerjs.min.js，MIT）
+server/           自建服务：信令 + 中继二合一（Node + ws，可独立部署）
 build/            图标（由 scripts/make-icon.js 用代码绘制）与 NSIS 卸载脚本
 scripts/          端到端测试、截图、图标与资源准备
 ```
@@ -155,10 +168,11 @@ scripts/          端到端测试、截图、图标与资源准备
 - 同一时间只支持 1 对连接（一个发送方 ↔ 一个接收方）。
 - 不支持断点续传、不支持多路并发传输。
 - 网页版接收超大文件受浏览器内存限制（桌面版无此限制）。
-- 传输速度取决于两端带宽与 NAT 路径，跨省家宽通常在 1–10 MB/s。
+- 传输速度取决于两端带宽与 NAT 路径，跨省家宽通常在 1–10 MB/s；走中继时速度受服务器带宽限制。
+- 跨网「一定能连上」的前提是：能打洞成功，或者有一个双方都能访问的自建服务。没有任何中继服务器时，严格 NAT 之间无法直连，这是网络层限制，不是客户端能绕过的。
 
 ## 许可
 
 MIT © 2026 zgs7157
 
-第三方依赖：[PeerJS](https://github.com/peers/peerjs)（MIT）、[Electron](https://www.electronjs.org/)（MIT）、[electron-builder](https://www.electron.build/)（MIT）。
+第三方依赖：[PeerJS](https://github.com/peers/peerjs)（MIT）、[ws](https://github.com/websockets/ws)（MIT）、[Electron](https://www.electronjs.org/)（MIT）、[electron-builder](https://www.electron.build/)（MIT）。

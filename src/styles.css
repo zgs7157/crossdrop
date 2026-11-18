@@ -686,3 +686,14 @@ a { color: var(--primary-deep); }
     transition-duration: 0.001ms !important;
   }
 }
+
+.field-hint code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+  padding: 1px 5px;
+  border-radius: 5px;
+  color: #0d7a67;
+  background: rgba(15, 169, 142, 0.09);
+}
+

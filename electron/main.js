@@ -31,7 +31,10 @@ function defaultSettings() {
     useStun: true,
     turnUrl: '',
     turnUser: '',
-    turnSecret: ''
+    turnSecret: '',
+    relayUrl: '',
+    relayToken: '',
+    linkMode: 'auto'
   };
 }
 

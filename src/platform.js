@@ -22,7 +22,10 @@
       useStun: true,
       turnUrl: '',
       turnUser: '',
-      turnSecret: ''
+      turnSecret: '',
+      relayUrl: '',
+      relayToken: '',
+      linkMode: 'auto'
     };
   }
 
@@ -45,7 +48,7 @@
         saveDir: desktopInfo.saveDir
       };
     } else {
-      info = { desktop: false, platform: detectPlatform(), version: '1.0.0', saveDir: '浏览器默认下载目录' };
+      info = { desktop: false, platform: detectPlatform(), version: '1.0.1', saveDir: '浏览器默认下载目录' };
       try {
         settings = Object.assign(webDefaults(), JSON.parse(localStorage.getItem(LS_KEY) || '{}'));
       } catch {

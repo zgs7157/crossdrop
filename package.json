@@ -1,7 +1,7 @@
 {
   "name": "crossdrop",
   "productName": "CrossDrop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "CrossDrop 跨网快传：两台电脑或手机之间跨局域网、跨地区直接互传文件的桌面工具（WebRTC 点对点 + 加密通道）。",
   "author": "zgs7157",
   "license": "MIT",
@@ -14,11 +14,14 @@
   },
   "scripts": {
     "start": "electron .",
+    "server": "node server/index.js",
     "test:e2e": "electron scripts/e2e.js",
     "assets": "node scripts/prepare-assets.js",
     "dist": "node scripts/prepare-assets.js && electron-builder --win nsis"
   },
-  "dependencies": {},
+  "dependencies": {
+    "ws": "^8.23.0"
+  },
   "devDependencies": {
     "electron": "^33.4.11",
     "electron-builder": "^25.1.8",
