@@ -120,7 +120,6 @@
 
       if (canRelay) startRelayHost();
       if (usePeer) startPeer();
-      else emitCode();
     }
 
     function startRelayHost() {
@@ -138,8 +137,11 @@
 
       link.on('registered', function () {
         emitCode();
-        status('boot', '已注册到自建服务，等待对方连接');
-        if (!peer || !peer.open) emitCode();
+        if (linkMode === 'relay') {
+          status('ready', '就绪 · 等待对方连接');
+        } else {
+          status('boot', '已连上自建服务，等待对方连接');
+        }
       });
 
       link.on('open', function () {
